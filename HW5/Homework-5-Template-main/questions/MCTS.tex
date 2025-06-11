@@ -1,0 +1,170 @@
+\section{Task 1: Monte Carlo Tree Search}
+
+\subsection{Task Overview}
+This notebook implements a \textbf{MuZero-inspired reinforcement learning (RL) framework}, integrating \textbf{planning, learning, and model-based approaches}. The primary objective is to develop an RL agent that can learn from \textbf{environment interactions} and improve decision-making using \textbf{Monte Carlo Tree Search (MCTS)}.
+
+The key components of this implementation include:
+
+\subsubsection{Representation, Dynamics, and Prediction Networks}
+\begin{itemize}
+    \item Transform raw observations into \textbf{latent hidden states}.
+    \item Simulate \textbf{future state transitions} and predict \textbf{rewards}.
+    \item Output \textbf{policy distributions} (probability of actions) and \textbf{value estimates} (expected returns).
+\end{itemize}
+
+\subsubsection{Search Algorithms}
+\begin{itemize}
+    \item \textbf{Monte Carlo Tree Search (MCTS)}: A structured search algorithm that simulates future decisions and \textbf{backpropagates values} to guide action selection.
+    \item \textbf{Naive Depth Search}: A simpler approach that expands all actions up to a fixed depth, evaluating rewards.
+\end{itemize}
+
+\subsubsection{Buffer Replay (Experience Memory)}
+\begin{itemize}
+    \item Stores entire \textbf{trajectories} (state-action-reward sequences).
+    \item Samples \textbf{mini-batches} of past experiences for training.
+    \item Enables \textbf{n-step return calculations} for updating value estimates.
+\end{itemize}
+
+\subsubsection{Agent}
+\begin{itemize}
+    \item Integrates \textbf{search algorithms} and \textbf{deep networks} to infer actions.
+    \item Uses a \textbf{latent state representation} instead of raw observations.
+    \item Selects actions using \textbf{MCTS, Naive Search, or Direct Policy Inference}.
+\end{itemize}
+
+\subsubsection{Training Loop}
+\begin{enumerate}
+    \item \textbf{Step 1}: Collects trajectories through environment interaction.
+    \item \textbf{Step 2}: Stores experiences in the \textbf{replay buffer}.
+    \item \textbf{Step 3}: Samples sub-trajectories for \textbf{model updates}.
+    \item \textbf{Step 4}: Unrolls the learned model \textbf{over multiple steps}.
+    \item \textbf{Step 5}: Computes \textbf{loss functions} (policy, value, and reward prediction errors).
+    \item \textbf{Step 6}: Updates the neural network parameters.
+\end{enumerate}
+
+\textbf{Sections to be Implemented}
+
+The notebook contains several placeholders (\texttt{TODO}) for missing implementations.
+\subsection{Questions}
+
+\subsubsection{MCTS Fundamentals}
+\begin{itemize}
+    \item What are the four main phases of MCTS (Selection, Expansion, Simulation, Backpropagation), and what is the conceptual purpose of each phase?
+    The four main phases of Monte Carlo Tree Search (MCTS) are Selection, Expansion, Simulation, and Backpropagation. The Selection phase starts from the root node of the search tree and recursively traverses down the tree, choosing child nodes based on a selection policy (often balancing exploration and exploitation) until it reaches a node that has been visited but not fully expanded. The conceptual purpose of selection is to efficiently navigate the already explored parts of the search space to identify promising areas for further investigation.
+
+Once a suitable node is selected, the Expansion phase takes place. In this phase, one or more child nodes representing the possible next actions from the selected node are added to the search tree. Typically, if the selected node represents a non-terminal state, a new child node corresponding to an unvisited action is created. Following expansion, the Simulation phase (also known as rollout) begins from the newly added child node. In this phase, the game or process is played out until a terminal state or a predefined limit is reached, with actions chosen according to a rollout policy (often a simple or random policy for efficiency). The outcome of this simulation provides an estimate of the value of the expanded node. Finally, the Backpropagation phase updates the information stored in the nodes along the path traversed from the newly simulated node back to the root of the tree. This typically involves updating statistics such as the number of visits and the win/reward rate for each node, allowing the search to learn and refine its understanding of the value of different actions and states over multiple iterations.
+    \item How does MCTS balance exploration and exploitation in its node selection strategy (i.e., how does the UCB formula address this balance)?
+    The Upper Confidence Bound (UCB) formula, commonly used in the Selection phase of MCTS, explicitly balances exploration and exploitation through its two main components. The formula typically used is:
+
+$$UCB_i = \frac{w_i}{n_i} + c \sqrt{\frac{\ln(N_i)}{n_i}}$$
+
+where:
+\begin{itemize}
+    \item $UCB_i$ is the UCB value for the $i$-th child node.
+    \item $\frac{w_i}{n_i}$ represents the exploitation component, which is the current win rate (or average reward) of the $i$-th child node based on the simulations performed so far. This term encourages the selection of nodes that have led to favorable outcomes in the past.
+    \item $c \sqrt{\frac{\ln(N_i)}{n_i}}$ represents the exploration component. Here, $c$ is a positive exploration constant, $N_i$ is the number of times the parent node has been visited, and $n_i$ is the number of times the $i$-th child node has been visited. The natural logarithm of the parent's visit count ($\ln(N_i)$) ensures that as the parent is visited more often, the exploration bonus decreases gradually. The term is inversely proportional to the number of times the child node has been visited ($n_i$), meaning that nodes that have been visited less often will have a larger exploration bonus. This encourages the algorithm to explore less visited parts of the search tree, potentially discovering better moves that haven't been thoroughly evaluated yet. The constant $c$ controls the strength of the exploration; a higher $c$ favors more exploration, while a lower $c$ favors more exploitation.
+\end{itemize}
+By combining these two terms, the UCB formula guides the Selection phase to choose child nodes that either have a high win rate (exploitation) or haven't been visited enough times to confidently assess their potential (exploration).
+\end{itemize}
+
+\subsubsection{Tree Policy and Rollouts}
+\begin{itemize} 
+   \item Why do we run multiple simulations from each node rather than a single simulation? 
+   We run multiple simulations from each node in Monte Carlo Tree Search (MCTS) to obtain a more reliable estimate of the node's value. A single simulation, especially if the rollout policy is simple or random, can be heavily influenced by chance and might not accurately reflect the true potential of the state represented by that node.
+
+By performing multiple rollouts from the same node, we are essentially sampling the possible outcomes reachable from that state. The average outcome across these simulations provides a much more robust and statistically sound estimate of the node's value. This aggregation of results helps to reduce the variance inherent in a single random simulation and allows the MCTS algorithm to make more informed decisions during the Selection and Backpropagation phases, ultimately leading to better overall performance.
+   \item What role do random rollouts (or simulated playouts) play in estimating the value of a position?
+   Random rollouts, or simulated playouts, play a crucial role in Monte Carlo Tree Search (MCTS) by providing a computationally inexpensive way to estimate the value of a position. Starting from a leaf node in the search tree (or a newly expanded node), a rollout involves simulating the game or process until a terminal state is reached or a predefined limit is met. During the rollout, actions are typically chosen randomly or according to a simple, fast policy.
+
+The outcome of each random rollout (e.g., a win, loss, or a numerical score) serves as a sample of the potential value of the position from which the rollout began. By performing many such random rollouts from a given node and averaging their results, MCTS can approximate the expected value of that position. This estimated value is then backpropagated up the search tree, updating the statistics of the nodes along the path. These statistics, such as the number of wins and visits, are used in the Selection phase to guide the search towards more promising areas of the search space. Thus, random rollouts provide a fundamental mechanism for evaluating the potential of unexplored or less explored states, enabling MCTS to make informed decisions without relying on complex, domain-specific evaluation functions.
+\end{itemize}
+
+
+\subsubsection{Integration with Neural Networks}
+\begin{itemize}
+    \item In the context of Neural MCTS (e.g., AlphaGo-style approaches), how are policy networks and value networks incorporated into the search procedure?  
+    \\
+    In Neural MCTS, as exemplified by AlphaGo-style approaches, policy networks and value networks trained through deep learning are deeply integrated into the traditional MCTS procedure to significantly enhance its performance.
+
+The policy network plays a crucial role in both the Selection and Expansion phases. During Selection, the policy network provides prior probabilities for each possible action from a given state. This prior probability is often incorporated into the UCB formula, biasing the search towards actions that the policy network deems more promising. This helps to guide the exploration towards high-potential moves from the very beginning. In the Expansion phase, when a leaf node is reached, the policy network can suggest which actions are most likely to be good candidates for expansion, allowing the tree to grow more strategically. Furthermore, in some variations, the policy network might also inform the rollout policy, making the simulated playouts more intelligent and relevant.
+
+The value network is primarily used in place of or to augment the Simulation phase. Instead of performing a random or simple rollout until the end of the game, the value network directly estimates the value of the state reached after the Expansion phase. This value represents the predicted probability of winning (or the expected outcome) from that state. This direct evaluation by the value network is much more efficient and often more accurate than relying on the outcome of a full random rollout. The value predicted by the value network is then used in the Backpropagation phase to update the win/loss statistics of the nodes along the path from the expanded node back to the root. This allows the MCTS to learn from the neural network's understanding of the game's value function, leading to a much stronger search performance compared to traditional MCTS.
+    \item What is the role of the policy network’s output (“prior probabilities”) in the Expansion phase, and how does it influence which moves get explored?
+    \\
+    In the Expansion phase of Neural MCTS, the policy network's output, which consists of prior probabilities for each possible action from the current state, serves as a crucial guide for determining which moves to explore further. Instead of blindly expanding all possible next states, the prior probabilities provided by the policy network offer a heuristic indicating the likelihood of each move being good or promising.
+
+Specifically, these prior probabilities influence which moves get explored by:
+
+\begin{enumerate}
+    \item \textbf{Prioritizing Expansion:} MCTS often prioritizes the expansion of nodes corresponding to actions with higher prior probabilities assigned by the policy network. This means that the algorithm is more likely to create new branches in the search tree for moves that the policy network deems more promising based on its training.
+    \item \textbf{Focusing Search:} By focusing the expansion on moves with higher prior probabilities, the search tree is more likely to grow in directions that are considered strategically relevant. This can significantly improve the efficiency of the search by concentrating computational resources on exploring potentially better moves earlier in the process.
+    \item \textbf{Informing UCB:} The prior probabilities are often incorporated into the UCB formula used during the Selection phase. This means that even for newly expanded nodes with few or no simulations, the initial UCB value will be influenced by the policy network's prior probability, making it more likely that these initially promising moves will be selected for further simulation.
+\end{enumerate}
+
+In essence, the policy network's prior probabilities act as an informed prior, guiding the Expansion phase to strategically grow the search tree towards moves that are deemed more likely to be beneficial, based on the knowledge learned by the neural network. This allows Neural MCTS to explore the search space more effectively compared to traditional MCTS, which might expand nodes more uniformly or based solely on visit counts.
+\end{itemize}
+
+
+\subsubsection{Backpropagation and Node Statistics}
+\begin{itemize}
+    \item During backpropagation, how do we update node visit counts and value estimates?  \\
+    During the Backpropagation phase of Monte Carlo Tree Search (MCTS), the results of the simulation (or the value estimate from a value network in Neural MCTS) are propagated back up the search tree from the newly expanded node to the root node. This involves updating the statistics of each node along the path traversed.
+
+Here's how node visit counts and value estimates are typically updated:
+
+\begin{enumerate}
+    \item \textbf{Visit Counts:} For every node along the path from the expanded node back to the root, the visit count is incremented by one. This count keeps track of how many times each node has been part of a simulation. It reflects how much the algorithm has explored the subtree rooted at that node.
+    \item \textbf{Value Estimates:} The update of the value estimate depends on the outcome of the simulation or the prediction from a value network.
+    \begin{itemize}
+        \item \textbf{For games with win/loss outcomes:} Each node usually stores a win count (or a total reward). If the simulation from the expanded node results in a win for the player whose turn it was at that node, the win count (or reward) of that node and all its ancestors along the path is incremented. The value estimate of a node is often calculated as the ratio of wins to visits (win rate).
+        \item \textbf{For problems with numerical rewards:} If the simulations yield numerical rewards, each node typically stores the sum of the rewards obtained from all simulations that have passed through it. The value estimate of a node is then the average reward, calculated by dividing the sum of rewards by the number of visits:
+        $$ \text{Value Estimate} = \frac{\text{Sum of Rewards}}{\text{Number of Visits}} $$
+    \end{itemize}
+\end{enumerate}
+
+The backpropagation process ensures that the information gained from exploring a particular path in the search tree is reflected in the statistics of all the nodes along that path, from the point of expansion back to the root. This allows the MCTS algorithm to gradually learn the value of different actions and states as it performs more simulations. Nodes that lead to better outcomes (higher win rates or rewards) will tend to have higher value estimates and will be more likely to be selected for further exploration in subsequent iterations of the MCTS algorithm.
+    \item Why is it important to aggregate results carefully (e.g., averaging or summing outcomes) when multiple simulations pass through the same node?\\
+    It is crucial to aggregate results carefully (e.g., averaging or summing outcomes) when multiple simulations pass through the same node in Monte Carlo Tree Search (MCTS) because this aggregation forms the basis for estimating the value of that state. Here's why this careful aggregation is important:
+
+\begin{enumerate}
+    \item \textbf{Obtaining a Reliable Value Estimate:} Each simulation provides a single sample of the potential outcome from a given node. However, a single outcome can be noisy or heavily influenced by the randomness of the rollout policy. By aggregating the results of multiple simulations, we obtain a more robust and statistically reliable estimate of the expected value of that node. For example, averaging win/loss outcomes gives us an estimate of the win probability from that state.
+    \item \textbf{Reducing Variance:} The outcomes of individual simulations can vary significantly. By averaging or summing over many simulations, we reduce the impact of these random fluctuations, providing a more stable and accurate representation of the underlying value of the state. This reduction in variance is essential for making informed decisions during the Selection phase of MCTS.
+    \item \textbf{Informing Node Selection:} The aggregated value estimates are used to guide the exploration-exploitation balance in the Selection phase. For instance, in the UCB formula, the average reward or win rate of a node is a key component. If the aggregation is not done correctly, the value estimates will be misleading, potentially causing the algorithm to explore suboptimal branches or prematurely exploit seemingly good but ultimately less promising moves.
+    \item \textbf{Convergence Towards True Value:} As more simulations pass through a node, the aggregated value should, according to the Law of Large Numbers, converge towards the true expected value of that state. Careful aggregation ensures that this convergence is accurate and reflects the actual potential of the position.
+\end{enumerate}
+
+In summary, careful aggregation of simulation results is fundamental to the accuracy and reliability of the value estimates in MCTS. These estimates are the cornerstone of the algorithm's decision-making process, guiding both exploration and exploitation to find optimal strategies or solutions.
+    
+\end{itemize}
+
+
+\subsubsection{Hyperparameters and Practical Considerations}
+\begin{itemize}
+    \item How does the exploration constant (often denoted \( c_{puct} \) or \( c \)) in the UCB formula affect the search behavior, and how would you tune it?  \\
+    The exploration constant (often denoted \( c_{puct} \) or \( c \)) in the UCB formula,
+$$UCB_i = \frac{w_i}{n_i} + c \sqrt{\frac{\ln(N_i)}{n_i}},$$
+plays a critical role in balancing the trade-off between exploitation and exploration during the node selection phase of Monte Carlo Tree Search.
+
+A \textbf{higher value} of the exploration constant \( c \) increases the weight of the exploration term (the second term in the formula). This encourages the MCTS algorithm to select nodes that have been visited less frequently, even if their current win rate (\( \frac{w_i}{n_i} \)) is lower than that of more frequently visited nodes. This promotes a broader search of the state space, increasing the chance of discovering potentially better moves that haven't been thoroughly explored yet. Conversely, a \textbf{lower value} of \( c \) reduces the influence of the exploration term, making the algorithm more likely to choose nodes with a higher current win rate, thus favoring exploitation of the knowledge already gained.
+
+Tuning the exploration constant is crucial for optimal performance and often depends on the specific problem domain. A common approach is to perform a parameter sweep or grid search, trying different values of \( c \) and evaluating the performance of the MCTS agent (e.g., by playing against a fixed opponent or a baseline). One might start with a range of values (e.g., from 0.1 to 10) and systematically test each. More sophisticated methods like Bayesian optimization can also be employed to more efficiently find a good value for \( c \). The optimal value often represents a balance: too low, and the search might get stuck in a local optimum; too high, and the search might spend too much time exploring unpromising branches. In AlphaGo and its successors, the exploration constant (often within the Puct formula, which is a variant of UCB) was carefully tuned through extensive self-play and evaluation to achieve the best balance between exploration and exploitation for the game of Go.
+    \item In what ways can the “temperature” parameter (if used) shape the final move selection, and why might you lower the temperature as training progresses?\\
+    The "temperature" parameter, often used in the final move selection stage of MCTS, shapes the probability distribution over the available moves based on their visit counts. A \textbf{higher temperature} makes the probabilities of selecting different moves more uniform, even if their visit counts are significantly different. This encourages more exploration in the final move selection, as less visited but potentially promising moves have a higher chance of being chosen. Conversely, a \textbf{lower temperature} makes the probability distribution sharper, concentrating the probability mass on the move with the highest visit count. As the temperature approaches zero, the move selection becomes deterministic, always picking the move that MCTS has explored the most and deems the best.
+
+Lowering the temperature as training progresses in systems like AlphaGo serves several important purposes. In the early stages of training, the agent's knowledge (represented by the policy and value networks) is limited. A higher temperature encourages more exploration during self-play games, allowing the agent to discover a wider variety of states and moves. This diverse experience is crucial for learning a robust and general policy. As training progresses, the agent becomes more confident in its evaluations. Lowering the temperature gradually shifts the focus from exploration to exploitation in the self-play games. By selecting moves more deterministically (based on the higher visit counts resulting from the improved policy), the agent reinforces the strategies it has learned and generates higher-quality training data for further improvement. This transition from exploration to exploitation is essential for the agent to converge to a strong playing policy.
+\end{itemize}
+
+
+\subsubsection{Comparisons to Other Methods}
+\begin{itemize}
+    \item How does MCTS differ from classical minimax search or alpha-beta pruning in handling deep or complex game trees?  
+    Monte Carlo Tree Search (MCTS) and classical minimax search (with alpha-beta pruning) differ significantly in their approach to handling deep or complex game trees.
+
+Classical minimax search with alpha-beta pruning aims to explore the game tree up to a certain depth, evaluating terminal states or using a heuristic evaluation function for non-terminal states at the search horizon. It operates by exhaustively considering all possible moves and their consequences within the search depth, pruning branches that are guaranteed to be suboptimal. This method suffers from the "state-space explosion" problem in deep or complex games with high branching factors, as the number of nodes to explore grows exponentially with the search depth. While alpha-beta pruning helps to mitigate this by reducing the number of nodes evaluated, it still struggles with the sheer size of the game tree in games like Go or complex real-time strategy games. Furthermore, it heavily relies on a well-crafted static evaluation function to estimate the value of non-terminal states, which can be challenging to design effectively for complex games.
+    \item What unique advantages does MCTS provide when the state space is extremely large or when an accurate heuristic evaluation function is not readily available?\\
+    Monte Carlo Tree Search (MCTS) offers unique advantages when dealing with extremely large state spaces or when an accurate heuristic evaluation function is not readily available due to its fundamental differences from traditional search algorithms like minimax.
+
+When the \textbf{state space is extremely large}, MCTS excels because it employs a selective exploration strategy. Unlike algorithms that attempt to explore the entire game tree or rely on a fixed depth limit, MCTS iteratively builds a partial tree by focusing its simulations on the most promising regions of the search space. This is achieved through the UCB (or similar) selection policy, which balances exploration of less visited nodes with exploitation of nodes that have shown good results so far. This adaptive and focused exploration allows MCTS to find good moves even in vast state spaces where a full or deep search is computationally infeasible. Furthermore, MCTS is an anytime algorithm, meaning it can be stopped at any point and will return the best move found so far, with the quality of the move typically improving with more computation time.
+
+When an \textbf{accurate heuristic evaluation function is not readily available}, MCTS provides a significant advantage by estimating the value of a state through simulation (rollout). Instead of relying on a handcrafted heuristic to evaluate non-terminal states, MCTS performs random playouts from a given state until a terminal state is reached, and the outcome of these simulations (e.g., win or loss) is used to update the value of the nodes in the search tree. This approach is particularly powerful in domains where defining a good heuristic is challenging or requires extensive domain expertise. In more advanced implementations like AlphaGo, MCTS is combined with deep neural networks that learn a policy and a value function through self-play, further reducing the reliance on manually designed heuristics. This allows MCTS to be applied effectively to complex games and problems where traditional evaluation functions have struggled.
+\end{itemize}

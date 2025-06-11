@@ -1,0 +1,114 @@
+\section{Policy Gradient Theorem}
+
+In this question, we will prove the policy gradient theorem and provide a set of sufficient conditions that allow us to use function approximations as a critic for the $Q$-value function so that the policy gradient using our function approximation remains exact.
+
+\subsection{Notations}
+
+Consider a normal finite MDP with bounded rewards. $P(s'|s, a)$ represents the transition model, which corresponds to the probability of transitioning from state $s$ to $s'$ due to action $a$. Also, the reward model is represented by $r: \mathcal{S}\times\mathcal{A}\xrightarrow{}[0, 1]$ where $r(s, a)$ is the immediate reward associated with taking action $a$ in state $s$. Parameter $\gamma \in [0, 1)$ corresponds to the discount factor, and $s_0$ indicates the starting state of our MDP. 
+
+A parametrized policy $\pi_{\theta}$ induces a distribution over trajectories $\tau = (s_t, a_t, r_t)|_{t = 0}^\infty$ where $s_0$ is the starting state, and for all subsequent timesteps $t$, $a_t \sim \pi(.|s_t)$, $s_{t + 1}\sim P(.|s_t, a_t)$. The state value function and the state-action value ($Q$-value) functions are defined as follows by the Bellman operator:
+\begin{align*}
+    &V^{\pi_\theta}(s) = \mathbb{E}_{a\sim \pi_\theta(.|s)} [Q^{\pi_\theta}(s,a)]\\
+    &Q^{\pi_\theta}(s,a) = r(s, a) + \gamma\mathbb{E}_{s'\sim P(.|s, a)} [V^{\pi_\theta}(s')] 
+\end{align*}
+
+We also define the discounted state visitation distribution $d^{\pi}_{s_0}$ of a policy $\pi$ as:
+\begin{align}
+    d^{\pi}_{s_0}(s) = (1-\gamma)\sum_{t = 0}^{\infty}\gamma^t Pr^{\pi}(s_t = s|s_0),
+\end{align}
+where $Pr^{\pi}(s_t = s|s_0)$ is the state visitation probability that $s_t = s$, after we execute $\pi$ starting at state $s_0$.
+
+\subsection{Proving the Policy Gradient Theorem}
+
+The objective function of our RL problem is defined as $J(\theta) = V^{\pi_\theta}(s_0)$. The policy gradient method uses the gradient ascent algorithm to optimize $\theta$. This can be done by the direct differentiation of the objective function.
+
+a) Prove the following identity, which is known as the Policy Gradient Theorem:
+
+\begin{align}\label{policy_grad}
+    \nabla_\theta J(\theta) = \frac{1}{1-\gamma}\mathbb{E}_{s \sim d^{\pi_\theta}_{s_0}}\mathbb{E}_{a \sim \pi_\theta(.|s)} [\nabla_\theta \log \pi_\theta (a|s) Q^{\pi_\theta} (s, a)]
+\end{align}
+\\
+{\fontfamily{lmss}\selectfont {\color{RoyalBlue}
+Answer : 
+\begin{align}
+    \nabla_{\theta}J(\theta) &= \nabla_{\theta}V^{\pi_\theta}(s_0) = \nabla_\theta \mathbf{E}_{a\sim \pi_\theta(.|s)} \left[Q^{\pi_\theta}(s,a)\right] \nonumber \\
+    & = \nabla_\theta \sum_{a_0} \pi_\theta(a_0|s_0)Q^{\pi_\theta}(s_0,a_0) \nonumber \\
+    & = \sum_{a_0} \nabla_\theta\pi_\theta(a_0|s_0)Q^{\pi_\theta}(s_0,a_0) + \pi_\theta(a_0|s_0)\nabla_\theta Q^{\pi_\theta}(s_0,a_0) \nonumber \\
+    & = \sum_{a_0} \pi_\theta(a_0|s_0)(\nabla_\theta \log \pi_\theta(a_0|s_0)) Q^{\pi_\theta}(s_0,a_0) + \gamma\sum_{a_0 , s_1} \pi_\theta(a_0|s_0) P(s_1|s_0,a_0)\nabla_\theta V^{\pi_\theta}(s_1) \nonumber 
+\end{align}
+In the last line we have used the fact that 
+\begin{align}
+    \nabla_\theta Q^{\pi_\theta}(s_0,a_0) = r(s_0,a_0) + \gamma \mathbf{E}_{s'\sim P(.|s_0,a_0)} \left[V^{\pi_\theta}(s')\right] \nonumber 
+\end{align}
+If we define $\text{Pr}_{\mu}^{\pi}(\tau) = \mu(s_0)\pi(a_0|s_0)P(s_1|s_0,a_0)\pi(a_1|s_1)....$, we are going to have : 
+\begin{align}
+    \nabla_\theta J(\theta) &=  \mathbf{E}_{a_0\sim \pi_(.|s_0)}\left[\nabla_\theta \log \pi_\theta(a_0|s_0)Q^{\pi_\theta}(s_0,a_0) \right] + \gamma \mathbf{E}_{a_0 \sim \pi(.|s_0)}\mathbf{E}_{s_1 \sim P(.|s_0,a_0)}\left[\nabla_\theta V^{\pi_\theta}(s_1)\right] \nonumber \\
+    &=(*)\mathbf{E}_{\tau \sim Pr_\mu^\pi }\left[\nabla_\theta \log \pi_\theta(a_0|s_0)Q^{\pi_\theta}(s_0,a_0) \right] + \gamma \mathbf{E}_{\tau \sim Pr_\mu^\pi}\left[\nabla_\theta V^{\pi_\theta}(s_1)\right] \nonumber \\
+    & =\mathbf{E}_{\tau \sim Pr_\mu^\pi }\left[\nabla_\theta \log \pi_\theta(a_0|s_0)Q^{\pi_\theta}(s_0,a_0) \right] + \gamma \mathbf{E}_{\tau \sim Pr_\mu^\pi}\left[\nabla_\theta \log \pi_\theta(a_1|s_1)Q^{\pi_\theta}(s_1,a_1)\right] \nonumber \\&+ \gamma^2 \mathbf{E}_{\tau \sim Pr_\mu^\pi }\left[\nabla_\theta \log \pi_\theta(a_2|s_2)Q^{\pi_\theta}(s_2,a_2) \right]\,  + \, ... \nonumber\\
+    \nabla_\theta J(\theta) &= \sum_{t=0}^{\infty} \gamma^t \mathbf{E}_{\tau \sim Pr_\mu^\pi }\left[\nabla_\theta \log \pi_\theta(a_t|s_t)Q^{\pi_\theta}(s_t,a_t) \right] \nonumber 
+\end{align}
+The reason that we can change $a_0 \sim \pi(.|s_0)$ to $\tau \sim \text{Pr}_{\mu}^{\pi}$ is shown below :
+\begin{align}
+    \mathbf{E}_{\tau \sim Pr_\mu^\pi } &\left[\nabla_\theta \log \pi_\theta(a_0|s_0)Q^{\pi_\theta}(s_0,a_0) \right] \nonumber \\
+     &= \sum_{a_0}\sum_{s_1}\sum_{a_1} ... \mu(s_0)\pi(a_0|s_0)P(s_1|a_0,s_0)\pi(a_1|s_1)\, ...\,\nabla_\theta \log \pi_\theta(a_0|s_0)Q^{\pi_\theta}(s_0,a_0) \nonumber \\ 
+    &= \sum_{a_0} \pi(a_0|s_0)\nabla_\theta \log \pi_\theta(a_0|s_0)Q^{\pi_\theta}(s_0,a_0) \Bigl\{ \sum_{s_1} \sum_{a_1} ...  \mu(s_0)P(s_1|a_0,s_0)\pi(a_1|s_1)\, ...\, \Bigl\} \nonumber \\
+    & =\sum_{a_0} \pi(a_0|s_0)\nabla_\theta \log \pi_\theta(a_0|s_0)Q^{\pi_\theta}(s_0,a_0) \cdot 1 \nonumber \\
+    & = \mathbf{E}_{a_0 \sim \pi(a_0|s_0)}\left[\nabla_\theta \log \pi_\theta(a_0|s_0)Q^{\pi_\theta}(s_0,a_0) \right] \nonumber
+\end{align}
+Now if we take the term inside the expectation as $f(t) \, = \, \nabla_\theta \log \pi_\theta(a_0|s_0)Q^{\pi_\theta}(s_0,a_0) $ and taking $\text{Pr}_{\mu}^{\pi} = \textbf{P}(S_t = s , A_t =a \, |S_0 \sim \mu , \pi_{\theta})$ we have
+\begin{align}
+    \nabla_\theta J(\theta) &=  \sum_{t=0}^{\infty} \gamma^t \sum_s \sum_a \textbf{P}(S_t = s , A_t =a \, |S_0 \sim \mu , \pi_{\theta}) f(t) \nonumber \\
+    & =\sum_{t=0}^{\infty} \gamma^t \sum_s \sum_a \textbf{P}(S_t = s \, |S_0 \sim \mu , \pi_{\theta}) \pi_\theta (a|s) f(t) = \sum_{t=0}^{\infty} \gamma^t \sum_s \textbf{P}(S_t = s \, |S_0 \sim \mu , \pi_{\theta}) \sum_a  \pi_\theta (a|s) f(t) \nonumber \\
+    & = \sum_s \underbrace{\Bigl\{ \sum_{t=0}^{\infty} \gamma^t \textbf{P}(S_t = s \, |S_0 \sim \mu , \pi_{\theta}) \Bigl\} }_{\frac{d_{s_0}^{\pi}(s)}{1-\gamma}}\sum_a  \pi_\theta (a|s) f(t)  = \frac{1}{1-\gamma} \sum_s d_{s_0}^{\pi}(s)\sum_a  \pi_\theta (a|s) f(t) \nonumber \\
+    & = \frac{1}{1-\gamma} \mathbf{E}_{s \sim d_{s_0}^{\pi}(s)} \mathbf{E}_{a \sim \pi_\theta(.|s)}\left[ \nabla_\theta \log \pi_\theta(a|s)Q^{\pi_\theta}(s,a)\right] \nonumber
+\end{align}
+}}
+
+
+\subsection{Compatible Function Approximation Theorem}
+
+Now, consider the case in which $Q^{\pi_\theta}$ is approximated by a learned function approximator. If the approximation is sufficiently good, we might hope to use it in place of $Q^{\pi_\theta}$ in equation \ref{policy_grad}. If we use the function approximator $Q_{\phi}(s, a)$, the convergence of our method is not necessarily maintained due to the fact that our gradient will not be exact anymore. The following theorem provides sufficient conditions for our function approximator so that our gradient using the approximator remains exact.
+
+\begin{theorem}\label{thm:compatible_approximator}
+    (Compatible Function Approximation). If the following two conditions are satisfied for any function approximator with parameter $\phi$:
+    \begin{enumerate}
+        \item Critic gradient is compatible with the Actor score function, i.e., 
+        \begin{align*}
+            \nabla_{\phi} Q_\phi(s, a) = \nabla_\theta \log \pi_\theta (a|s)
+        \end{align*}
+        \item Critic parameters $\phi$ minimize the following mean-squared error\footnote{Assume that the mean-squared error has only one critical point which corresponds to its minimum.}: 
+        \begin{align*}
+            \epsilon = \mathbb{E}_{s \sim d^{\pi_\theta}_{s_0}}\mathbb{E}_{a \sim \pi_\theta(.|s)} [(Q^{\pi_\theta} (s, a) - Q_\phi(s, a))^2]
+        \end{align*}
+    \end{enumerate}
+    Then, the policy gradient using critic $Q_\phi(s, a)$ is exact, i.e., 
+    \begin{align*}
+            \nabla_\theta J(\theta) = \frac{1}{1-\gamma}\mathbb{E}_{s \sim d^{\pi_\theta}_{s_0}}\mathbb{E}_{a \sim \pi_\theta(.|s)} [\nabla_\theta \log \pi_\theta (a|s) Q_\phi (s, a)]
+    \end{align*}
+\end{theorem}
+
+b) Prove theorem \ref{thm:compatible_approximator}.\\
+{\fontfamily{lmss}\selectfont {\color{RoyalBlue}
+Answer : We expand the $\epsilon$ term and have that :
+\begin{align}
+    \epsilon &= \mathbf{E}_{s\sim d_{s_0}^{\pi_{\theta}}}\mathbf{E}_{a \sim \pi_\theta(.|s)}\left[(Q^{\pi_\theta}(s,a) - Q_{\phi}(s,a))^2 \right] \nonumber \\
+    &=\sum_s (1-\gamma)\sum_{t=0}^{\infty} \gamma^t \text{Pr}^{\pi}(s_t =s |s_0) \sum_a \pi_\theta(a|s)(Q^{\pi_\theta}(s,a) - Q_{\phi}(s,a))^2 \nonumber
+\end{align}
+\begin{align}
+    \nabla_\phi \epsilon &=\sum_s (1-\gamma)\sum_{t=0}^{\infty} \gamma^t \text{Pr}^{\pi}(s_t =s |s_0) \sum_a \pi_\theta(a|s) \nabla_\phi (Q^{\pi_\theta}(s,a) - Q_{\phi}(s,a))^2 \nonumber \\
+    &=-2 \cdot \sum_s (1-\gamma)\sum_{t=0}^{\infty} \gamma^t \text{Pr}^{\pi}(s_t =s |s_0) \sum_a \pi_\theta(a|s) (Q^{\pi_\theta}(s,a) - Q_{\phi}(s,a))\nabla_\phi Q_\phi(s,a) = 0\nonumber
+\end{align}
+and from the first condition we know that the critic gradient is compatible with the Actor score function , so
+\begin{align}
+    &-2 \cdot \sum_s (1-\gamma)\sum_{t=0}^{\infty} \gamma^t \text{Pr}^{\pi}(s_t =s |s_0) \sum_a \pi_\theta(a|s) (Q^{\pi_\theta}(s,a) - Q_{\phi}(s,a))\nabla_\phi Q_\phi(s,a) =
+    \nonumber \\
+    &-2 \cdot \sum_s (1-\gamma)\sum_{t=0}^{\infty} \gamma^t \text{Pr}^{\pi}(s_t =s |s_0) \sum_a \pi_\theta(a|s) (Q^{\pi_\theta}(s,a) - Q_{\phi}(s,a))\nabla_\theta \log \pi_\theta(a|s) =0 \nonumber \\
+    &  \sum_s (1-\gamma)\sum_{t=0}^{\infty} \gamma^t \text{Pr}^{\pi}(s_t =s |s_0) \sum_a \pi_\theta(a|s) Q^{\pi_\theta}(s,a)\nabla_\theta \log \pi_\theta(a|s) \quad \textcolor{red}{(*)}\nonumber \\
+    & \hspace{20mm}= \sum_s (1-\gamma)\sum_{t=0}^{\infty} \gamma^t \text{Pr}^{\pi}(s_t =s |s_0) \sum_a \pi_\theta(a|s) Q_{\phi}(s,a)\nabla_\theta \log \pi_\theta(a|s) \quad \textcolor{red}{(**)} \nonumber \\
+    & \textcolor{red}{(*)} = (1-\gamma) \nabla_\theta J(\theta)  = \textcolor{red}{(**)} \nonumber \\
+    & (1-\gamma) \nabla_\theta J(\theta) = \sum_s (1-\gamma)\sum_{t=0}^{\infty} \gamma^t \text{Pr}^{\pi}(s_t =s |s_0) \sum_a \pi_\theta(a|s) Q_{\phi}(s,a)\nabla_\theta \log \pi_\theta(a|s) \nonumber \\
+    & \hspace{23.8mm}= \mathbf{E}_{s \sim d_{s_0}^{\pi_\theta}} \mathbf{E}_{a \sim \pi_\theta(.|s)} \left[ \nabla_\theta \pi_\theta(a|s) Q_\phi(s,a)\right] \nonumber \\
+    & \nabla_\theta J(\theta) = \frac{1}{1-\gamma} \mathbf{E}_{s \sim d_{s_0}^{\pi_\theta}} \mathbf{E}_{a \sim \pi_\theta(.|s)} \left[ \nabla_\theta \pi_\theta(a|s) Q_\phi(s,a)\right] \nonumber 
+\end{align}
+}}
+

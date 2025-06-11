@@ -1,0 +1,44 @@
+{
+    "latex-workshop.latex.recipes": [
+  {
+    "name": "xelatex",
+    "tools": ["xelatex"]
+  },
+  {
+    "name": "pdflatex -> bibtex -> pdflatex*2",
+    "tools": ["pdflatex", "bibtex", "pdflatex", "pdflatex"]
+  },
+  {
+    "name": "latexmk (xelatex)",
+    "tools": ["latexmk-xelatex"]
+  },
+  {
+    "name": "latexmk",
+    "tools": ["latexmk"]
+  }
+],
+"latex-workshop.latex.tools": [
+  {
+    "name": "xelatex",
+    "command": "xelatex",
+    "args": [
+      "-synctex=1",
+      "-interaction=nonstopmode",
+      "-file-line-error",
+      "%DOC%"
+    ]
+  },
+  {
+    "name": "latexmk-xelatex",
+    "command": "latexmk",
+    "args": [
+      "-synctex=1",
+      "-interaction=nonstopmode",
+      "-file-line-error",
+      "-xelatex",
+      "%DOC%"
+    ]
+  }
+],
+"latex-workshop.latex.recipe.default": "lastUsed"  // optional, see next step
+}

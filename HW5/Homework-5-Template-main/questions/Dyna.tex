@@ -1,0 +1,129 @@
+\section{Task 2: Dyna-Q}
+
+\subsection{Task Overview} 
+In this notebook, we focus on \textbf{Model-Based Reinforcement Learning (MBRL)} methods, including \textbf{Dyna-Q} and \textbf{Prioritized Sweeping}. 
+We use the \href{https://gymnasium.farama.org/environments/toy_text/frozen_lake/}{Frozen Lake} environment from \href{https://gymnasium.farama.org}{Gymnasium}. 
+The primary setting for our experiments is the \texttt{$8 \times 8$} map, which is non-slippery as we set \texttt{is\_slippery=False}. 
+However, you are welcome to experiment with the \texttt{$4 \times 4$} map to better understand the hyperparameters.
+
+\textbf{Sections to be Implemented and Completed}
+
+This notebook contains several placeholders (\texttt{TODO}) for missing implementations as well as some markdowns (\texttt{Your Answer:}), which are also referenced in section \ref{sec:dyna-questions}.
+
+\subsubsection{Planning and Learning} 
+In the \textbf{Dyna-Q} workshop session, we implemented this algorithm for \textit{stochastic} environments. 
+You can refer to that implementation to get a sense of what you should do. 
+However, to receive full credit, you must implement this algorithm for \textit{deterministic} environments.
+
+\subsubsection{Experimentation and Exploration} 
+The \textbf{Experiments} section and \textbf{Are you having troubles?} section of this notebook are \textbf{extremely important}. 
+Your task is to explore and experiment with different hyperparameters. 
+We don't want you to blindly try different values until you find the correct solution. 
+In these sections, you must reason about the outcomes of your experiments and act accordingly. 
+The questions provided in section \ref{sec:dyna-questions} can help you focus on better solutions.
+
+\subsubsection{Reward Shaping} 
+It is no secret that \href{https://www.alexirpan.com/2018/02/14/rl-hard.html#reward-function-design-is-difficult}{Reward Function Design is Difficult} in \textbf{Reinforcement Learning}. 
+Here we ask you to improve the reward function by utilizing some basic principles. 
+To design a good reward function, you will first need to analyze the current reward signal. 
+By running some experiments, you might be able to understand the shortcomings of the original reward function.
+
+\subsubsection{Prioritized Sweeping} 
+In the \textbf{Dyna-Q} algorithm, we perform the planning steps by uniformly selecting state-action pairs. 
+You can probably tell that this approach might be inefficient. \href{http://incompleteideas.net/book/ebook/node98.html}{Prioritized Sweeping} can increase planning efficiency.
+
+\subsubsection{Extra Points} 
+If you found the previous sections too easy, feel free to use the ideas we discussed for the \textit{stochastic} version of the environment by setting \texttt{is\_slippery=True}. 
+You must implement the \textbf{Prioritized Sweeping} algorithm for \textit{stochastic} environments. 
+By combining ideas from previous sections, you should be able to solve this version of the environment as well!
+
+\subsection{Questions}\label{sec:dyna-questions} 
+You can answer the following questions in the notebook as well, but double-check to make sure you don't miss anything.
+
+\subsubsection{Experiments}
+After implementing the basic \textbf{Dyna-Q} algorithm, run some experiments and answer the following questions:
+\begin{itemize} 
+    \item How does increasing the number of planning steps affect the overall learning process? 
+    \\
+    After implementing the basic Dyna-Q algorithm, experiments would likely reveal the following effects of increasing the number of planning steps on the overall learning process:
+
+Increasing the number of planning steps in Dyna-Q allows the agent to more extensively utilize its learned model of the environment. Each planning step involves randomly sampling a previously experienced state-action pair from the model and updating the Q-values as if that transition had occurred in reality. Consequently, a higher number of planning steps per real interaction can lead to \textbf{faster learning}. The agent can propagate the rewards and learned values more quickly through the state space via these simulated experiences, potentially reaching an optimal or near-optimal policy in fewer actual interactions with the environment. This is particularly beneficial in scenarios where real-world interactions are costly or time-consuming. Furthermore, in complex environments with delayed rewards or intricate state transitions, more planning can help the agent to better anticipate the long-term consequences of its actions, leading to the development of a more sophisticated and effective policy.
+
+However, increasing the number of planning steps also comes with potential drawbacks. The most immediate is the \textbf{increased computational cost} per step of interaction with the real environment. Each planning step requires computational resources, and a very high number of planning steps might make the learning process slower in terms of wall-clock time, even if it requires fewer real interactions. Additionally, the effectiveness of planning is directly tied to the \textbf{accuracy of the learned model}. If the model is flawed or incomplete, performing a large number of planning steps based on this inaccurate model could lead the agent to converge to a suboptimal policy. There is also a risk of \textbf{overfitting to the model}, where the agent becomes too reliant on the simulated experiences and fails to adequately explore the real environment or adapt to changes not captured by the model. Ultimately, the optimal number of planning steps often represents a trade-off between the benefits of leveraging the learned model for faster learning and the costs associated with computation time, model accuracy, and the need for continued real-world exploration.
+
+    \item What would happen if we trained on the slippery version of the environment, assuming we \textbf{didn't} change the \textit{deterministic} nature of our algorithm? 
+    \item Does planning even help for this specific environment? How so? (Hint: analyze the reward signal) \\
+    If we trained a basic Dyna-Q algorithm, which assumes a deterministic environment in its model learning and planning phases, on a slippery version of the environment (where transitions are stochastic), several issues would likely arise:
+
+\begin{enumerate}
+    \item \textbf{Inaccurate Model Learning:} The core of Dyna-Q involves learning a model of the environment, typically represented as $Model(s, a) \rightarrow (s', r)$. If the environment is slippery, meaning that taking action $a$ in state $s$ can lead to different next states $s'$ with certain probabilities, a deterministic algorithm would struggle to learn an accurate model. It might learn a model that predicts the most frequent next state or an average outcome, but this would not capture the true stochastic nature of the environment.
+
+    \item \textbf{Suboptimal Planning:} The planning phase of Dyna-Q relies on the learned model to simulate experiences and update Q-values. If the model is deterministic but the environment is not, the simulated experiences will not accurately reflect the actual possibilities. The agent might plan based on transitions that are not guaranteed to occur, leading to a suboptimal policy. For instance, it might assume it can reliably reach a certain state by taking a specific sequence of actions, only to find that the slipperiness of the environment often leads to unexpected outcomes.
+
+    \item \textbf{Inefficient Exploration:} A deterministic policy derived from a deterministic model might lead to inefficient exploration. In a slippery environment, sometimes seemingly suboptimal actions might need to be taken to navigate the stochasticity or to reach certain states. A deterministic agent might not discover these necessary strategies if its model doesn't account for the probabilistic transitions.
+\end{enumerate}
+
+In conclusion, training a deterministic Dyna-Q algorithm on a slippery environment without modifications to handle stochasticity would likely result in a poor performance. The learned model would be inaccurate, leading to flawed planning and an inability of the agent to develop an optimal policy that accounts for the probabilistic nature of the environment. To effectively learn in a slippery environment, the algorithm would need to be adapted to handle stochastic transitions, for example, by learning a probabilistic model or by using reinforcement learning algorithms inherently designed for stochastic environments.
+    \item Assuming it takes $N_1$ episodes to reach the goal for the first time, and from then it takes $N_2$ episodes to reach the goal for the second time, explain how the number of planning steps $n$ affects $N_1$ and $N_2$.
+    \begin{itemize}
+        \item \textbf{Small $n$ (close to 0):} When the number of planning steps is very small or zero, Dyna-Q behaves similarly to a purely model-free reinforcement learning algorithm like Q-learning. The agent primarily learns from direct interactions with the environment. It will take a certain number of episodes ($N_1$) to randomly stumble upon the goal and receive the reward. Learning will be slow as Q-values are mainly updated based on actual experiences.
+        \item \textbf{Intermediate $n$:} With a moderate number of planning steps, the agent starts to leverage its learned model of the environment. After each real interaction, it performs $n$ simulated experiences using the model. These simulated experiences allow the reward signal from reaching the goal to propagate backwards through the state space more rapidly than with just direct experience. Consequently, the agent is likely to find the goal in fewer episodes ($N_1$ will be smaller) compared to the case with small $n$. The planning helps in exploring potential paths to the goal without needing to physically traverse them in the environment.
+        \item \textbf{Large $n$:} If the number of planning steps is large, the agent spends a significant amount of computation time planning based on its current model after each real interaction. If the model is reasonably accurate, this can dramatically speed up the initial learning process, resulting in a significantly smaller $N_1$. The agent can effectively "think" through many possible action sequences using its model and potentially identify a path to the goal much faster. However, there might be diminishing returns beyond a certain point, and if the model is initially inaccurate, excessive planning could lead the agent astray.
+    \end{itemize}    
+    Once the agent has reached the goal for the first time, the reward information has been received and propagated to some extent through both real experience and the planning process. The learned model and Q-values will now contain information about a path to the goal.
+    
+    \begin{itemize}
+        \item \textbf{Small $n$:} For the second time, the agent will still primarily rely on direct experience. However, having reached the goal once, the Q-values for the states leading to it should have been updated. Therefore, it will likely take fewer episodes ($N_2 < N_1$) to reach the goal again compared to the very first time, but the number will still be relatively high as the reinforcement of the goal path is slow.
+        \item \textbf{Intermediate $n$:} With a moderate number of planning steps after the first goal achievement, the reward information will be propagated much more effectively through the simulated experiences. The agent's model and Q-values will be more strongly informed about the path to the goal. As a result, the agent should be able to reach the goal for the second time much faster ($N_2$ will be significantly smaller than $N_1$ and also smaller than the case with small $n$). The planning allows the agent to quickly reinforce the learned path and potentially discover more efficient routes.
+        \item \textbf{Large $n$:} A large number of planning steps after the first goal achievement will likely lead to a very rapid re-discovery of the goal ($N_2$ will be very small, potentially even 1 if the policy has become deterministic and directly leads to the goal). The agent will extensively simulate experiences based on its now more informed model, quickly solidifying a policy that leads to the goal. Similar to the case of $N_1$, excessively large $n$ might not provide significant additional benefit after the goal has been reached once and a good model has been learned.
+    \end{itemize}
+    
+    In conclusion, increasing the number of planning steps $n$ generally leads to a decrease in both $N_1$ and $N_2$. The more the agent plans, the faster it can learn and reinforce a policy that leads to the goal, both initially and on subsequent attempts. However, the optimal value of $n$ involves a trade-off with computational cost and the accuracy of the learned model.
+\end{itemize}
+
+\vspace*{0.3cm}
+\subsubsection{Improvement Strategies}
+Explain how each of these methods might help us with solving this environment:
+\begin{itemize} 
+    \item Adding a baseline to the Q-values. 
+    \item Changing the value of $\varepsilon$ over time or using a policy other than the $\varepsilon$-greedy policy. 
+    \item Changing the number of planning steps $n$ over time. 
+    \item Modifying the reward function. 
+    \item Altering the planning function to prioritize some state–action pairs over others. (Hint: explain how \textbf{Prioritized Sweeping} helps) 
+\end{itemize}
+Here's how each of the mentioned methods might help in solving the Frozen Lake environment using Dyna-Q:
+
+\begin{itemize}
+    \item \textbf{Adding a baseline to the Q-values:}
+    Adding a baseline to the Q-values can influence the exploration behavior. A positive baseline might encourage the agent to explore more by making the initial estimates of all actions more optimistic. In Frozen Lake, where the goal provides a positive reward, a positive baseline could motivate the agent to seek out this reward rather than getting stuck in local optima with zero or negative expected returns. The baseline can help in overcoming initial timidity to try new paths, especially in a slippery environment where the immediate outcome of an action might be unpredictable. The optimal value of the baseline would likely need to be tuned through experimentation.
+
+    \item \textbf{Changing the value of $\varepsilon$ over time or using a policy other than the $\varepsilon$-greedy policy:}
+    The $\varepsilon$-greedy policy balances exploration and exploitation.
+    \begin{itemize}
+        \item \textbf{Changing $\varepsilon$ over time (e.g., annealing):} Starting with a high $\varepsilon$ (more exploration) and gradually decreasing it over time (more exploitation) is often beneficial. In Frozen Lake, especially the slippery version, a high initial exploration rate is crucial to discover the goal and understand the stochastic transitions. As the agent learns more about the environment, reducing $\varepsilon$ allows it to exploit the learned policy, hopefully leading to the goal more consistently.
+        \item \textbf{Using a policy other than $\varepsilon$-greedy (e.g., softmax/Boltzmann exploration):} Policies like softmax choose actions based on a probability distribution derived from the Q-values. This can provide a more nuanced exploration strategy compared to the purely random exploration of $\varepsilon$-greedy. Actions with higher Q-values are more likely to be chosen, but less optimal actions still have a non-zero probability, allowing for continued exploration of potentially better paths. In Frozen Lake, this might help in navigating the slippery conditions by occasionally trying less obvious moves that could lead to the goal.
+    \end{itemize}
+
+    \item \textbf{Changing the number of planning steps $n$ over time:}
+    The number of planning steps in Dyna-Q determines how much the agent simulates experiences using its learned model.
+    \begin{itemize}
+        \item \textbf{Increasing $n$ over time:} Initially, the learned model might be inaccurate due to limited experience in Frozen Lake. Starting with a smaller $n$ could prevent the agent from over-relying on a flawed model. As the agent explores more and the model becomes more accurate, gradually increasing $n$ can allow for more efficient learning by propagating the reward from the goal (once found) more rapidly through simulated experiences, thus speeding up policy improvement.
+        \item \textbf{Decreasing $n$ over time:} One might also consider starting with a higher $n$ to quickly propagate the reward signal once the goal is reached for the first time, and then decreasing $n$ to focus more on real-time interactions and adapting to the stochasticity of the slippery environment. The optimal schedule for changing $n$ would likely depend on the specific characteristics of the Frozen Lake environment (e.g., its size and slipperiness).
+    \end{itemize}
+
+    \item \textbf{Modifying the reward function:}
+    The reward function shapes the agent's learning goals. In the standard Frozen Lake, the agent gets a reward only at the goal.
+    \begin{itemize}
+        \item \textbf{Reward shaping:} We could introduce intermediate rewards to guide the agent. For example, a small positive reward for moving closer to the goal (perhaps based on Manhattan distance) or a small negative reward for moving towards a hole. This could provide more frequent feedback and accelerate learning, especially in the slippery environment where reaching the terminal states might be infrequent initially.
+        \item \textbf{Penalties:} Increasing the penalty for falling into a hole might discourage the agent from taking risky actions and encourage it to find safer, albeit possibly longer, paths to the goal.
+    \end{itemize}
+
+    \item \textbf{Altering the planning function to prioritize some state–action pairs over others (Prioritized Sweeping):}
+    The basic Dyna-Q updates state-action pairs for planning uniformly at random. Prioritized Sweeping is an enhancement that focuses planning on state-action pairs whose updates are likely to have a significant impact on the Q-values of other states.
+    \begin{itemize}
+        \item \textbf{Mechanism:} Prioritized Sweeping uses a priority queue to keep track of state-action pairs. When a transition results in a change in the Q-value of a state $s'$, we look at all the states $s$ that could lead to $s'$ and prioritize the planning for the state-action pair $(s, a)$ that leads to $s'$. The priority is often based on the magnitude of the change in the Q-value.
+        \item \textbf{How it helps in Frozen Lake:} In Frozen Lake, reaching the goal state yields a significant reward. When this happens, the Q-values of the preceding states should be updated to reflect the possibility of reaching the goal. Prioritized Sweeping ensures that planning efforts are concentrated on these relevant predecessors, allowing the reward signal to propagate backwards from the goal more efficiently. This is particularly useful in navigating the environment, as it helps the agent quickly learn the sequence of actions required to reach the goal once it has been discovered. Even in the slippery version, prioritizing updates based on significant changes can help the agent adapt to the probabilistic outcomes more effectively by focusing on reinforcing successful (or avoiding unsuccessful) transitions.
+    \end{itemize}
+\end{itemize}
+
+By strategically applying these methods, we can potentially improve the efficiency and effectiveness of the Dyna-Q algorithm in solving the Frozen Lake environment, especially when dealing with the challenges posed by the slippery surface. The optimal configuration of these modifications would likely require empirical evaluation.

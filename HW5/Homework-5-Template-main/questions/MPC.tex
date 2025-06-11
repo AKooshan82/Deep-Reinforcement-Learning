@@ -1,0 +1,34 @@
+\section{Task 3: Model Predictive Control (MPC)}
+
+\subsection{Task Overview} In this notebook, we use \href{https://locuslab.github.io/mpc.pytorch/}{MPC PyTorch}, which is a fast and differentiable model predictive control solver for PyTorch. 
+Our goal is to solve the \href{https://gymnasium.farama.org/environments/classic_control/pendulum/}{Pendulum} environment from \href{https://gymnasium.farama.org}{Gymnasium}, where we want to swing a pendulum to an upright position and keep it balanced there.
+
+There are many helper functions and classes that provide the necessary tools for solving this environment using \textbf{MPC}. Some of these tools might be a little overwhelming, and that's fine, just try to understand the general ideas. Our primary objective is to learn more about \textbf{MPC}, not focusing on the physics of the pendulum environment.
+
+On a final note, you might benefit from exploring the \href{https://github.com/locuslab/mpc.pytorch/}{source code} for \href{https://locuslab.github.io/mpc.pytorch/}{MPC PyTorch}, as this allows you to see how PyTorch is used in other contexts. To learn more about \textbf{MPC} and \textbf{mpc.pytorch}, you can check out \href{https://arxiv.org/abs/1703.00443}{OptNet} and \href{https://arxiv.org/abs/1810.13400}{Differentiable MPC}.
+
+\textbf{Sections to be Implemented and Completed}
+
+This notebook contains several placeholders (\texttt{TODO}) for missing implementations. In the final section, you can answer the questions asked in a markdown cell, which are the same as the questions in section \ref{sec:mpc-questions}.
+
+\subsection{Questions}\label{sec:mpc-questions} 
+You can answer the following questions in the notebook as well, but double-check to make sure you don't miss anything.
+\subsubsection{Analyze the Results} 
+Answer the following questions after running your experiments: 
+\begin{itemize} 
+    \item How does the number of LQR iterations affect the MPC? \\
+    The number of LQR iterations affects the accuracy of the terminal cost and constraints used in MPC. More iterations lead to a more accurate LQR solution, which can improve the stability and performance of the MPC controller. Insufficient iterations might result in suboptimal MPC behavior.
+    \item What if we didn't have access to the model dynamics? Could we still use MPC? \\
+    Yes, we could still use MPC by employing data-driven techniques to learn a model from input-output data or by using model-free approaches like reinforcement learning within an MPC framework.
+    \item Do \texttt{TIMESTEPS} or \texttt{N\_BATCH} matter here? Explain.\\Yes, \texttt{TIMESTEPS} (which likely refers to the prediction horizon length) matters significantly in MPC. It determines how far into the future the controller predicts the system's behavior to optimize control actions.
+
+    No, \texttt{N\_BATCH} typically does not matter in the online operation of MPC. It is a parameter used in training machine learning models and is not a direct part of the core MPC algorithm.     
+    \item Why do you think we chose to set the initial state of the environment to the downward position?\\
+    Starting the pendulum downward ($\pi$ radians) is a challenging test for MPC because it's an unstable equilibrium. The controller must stabilize it and swing it upright. This demonstrates MPC's ability to control unstable systems, reach a target state, and operate in real-time dynamic systems.
+     \item As time progresses (later iterations), what happens to the actions and rewards? Why ?\\
+     In the Gymnasium Pendulum environment with MPC, as time progresses:
+
+\textbf{Actions (Torque):} Initially, the MPC controller applies torques to swing the pendulum to the upright position. Later, the actions will adjust to maintain the pendulum in the upright position, typically becoming smaller if the goal is achieved and the system is stable.\\
+\textbf{Rewards (Cost):} The cost, which penalizes deviation from the upright and control effort, should decrease (become less negative or closer to zero) as the pendulum is successfully controlled and stabilized at the desired state.\\
+\textbf{Why:} MPC optimizes control actions at each step to minimize a cost function over a prediction horizon. As the pendulum approaches the desired state, the optimal actions and the resulting cost reflect this convergence.
+\end{itemize}

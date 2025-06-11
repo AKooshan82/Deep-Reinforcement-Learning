@@ -1,0 +1,245 @@
+\section{Trust Region Policy Optimization}
+
+In this question, we will dive deep into the mathematical theories behind the TRPO algorithm. As a roadmap, we first prove that minimizing a certain surrogate objective function guarantees policy improvement with non-trivial step sizes. Then, we make a series of approximations to the theoretically justified algorithm, yielding a practical algorithm, which has been called trust region policy optimization (TRPO). 
+
+\subsection{Notations and Preliminaries}
+
+Let $\pi$ denote a stochastic policy and let $\eta(\pi)$ denote its expected discounted reward:
+
+\begin{align*}
+    \eta(\pi) = \mathbb{E}_{s_0, a_0, \ldots} [\sum_{t = 0}^{\infty} \gamma^t r(s_t)]
+\end{align*}
+
+where
+
+\begin{align*}
+    s_0 \sim \rho_0(s_0), a_t \sim \pi(a_t | s_t), s_{t + 1} \sim P(s_{t + 1} | s_t, a_t).
+\end{align*}
+
+Also, we will use the following standard definitions of the state-action value function $Q_\pi$, the value function $V_\pi$, and the advantage function $A_\pi$:
+
+\begin{align*}
+    &Q_\pi(s_t, a_t) = \mathbb{E}_{s_{t+1}, a_{t+1}, \ldots} [\sum_{l = 0}^{\infty} \gamma^l r(s_{t + l})] \\
+    &V_\pi(s_t) = \mathbb{E}_{a_t, s_{t+1}, \ldots} [\sum_{l = 0}^{\infty} \gamma^l r(s_{t + l})] \\
+    &A_\pi(s, a) = Q_\pi(s, a) - V_\pi(s)
+\end{align*}
+
+
+a) Prove the following identity:
+
+\begin{align}\label{eq_3}
+    \eta(\pi')=\eta(\pi)+\mathbb{E}_{s_{0}, a_{0}, \ldots \sim \pi'} [\sum_{t = 0}^{\infty} \gamma^t A_\pi(s_t, a_t)]
+\end{align}
+
+Equation \ref{eq_3} basically shows that the difference between the expected total rewards of any two policies $\pi'$ and $\pi$ depends on the advantage function of policy $\pi$ if the trajectory is sampled by running $\pi'$. We will use this equation to derive an optimization scheme further to maximize the expected total reward using the advantage function of policy $\pi$ to obtain policy $\pi'$.
+
+Let $\rho_\pi$ be the unnormalized discounted visitation frequencies:
+
+\begin{align*}
+    \rho_\pi(s) = P(s_0 = s)+\gamma P(s_1 = s) + \gamma^2 P(s_2 = s) + \ldots
+\end{align*} 
+\\
+{\fontfamily{lmss}\selectfont {\color{RoyalBlue}
+Proof. We have that 
+\begin{align}
+    A_\pi(s,a) = Q_\pi(s,a) - V_\pi(s) = \mathbf{E}_{s' \sim P(s'|s,a)} \left[r(s) + \gamma \cdot V_\pi(s') - V_\pi(s) \right] \nonumber
+\end{align}
+\begin{align}
+    \mathbf{E}_{s_0 , a_0 ,s_1 , a_1 , ...\sim \pi'} \left[ \sum_t \gamma^t A_\pi(s,a)\right] &= \mathbf{E}_{\tau |\pi'} \left[\sum_t \gamma^t(r(s_t) + \gamma V_\pi(s_{t+1}) - V_\pi(s_t))\right] \nonumber \\
+    &= \mathbf{E}_{\tau |\pi'}\left[-V_{\pi}(s_0) + \sum_{t=0} \gamma^t r(s_t)\right] \nonumber \\
+    &= -\mathbf{E}_{s_0} \left[V_\pi(s_0)\right] + \mathbf{E}_{\tau | \pi'} \left[ \sum_{t=0} \gamma^t r(s_t)\right] = -\eta(\pi) + \eta(\pi') \nonumber \\
+    \Rightarrow \eta(\pi') &= \eta(\pi) + \mathbf{E}_{\tau | \pi'}\left[\sum_{t=0} \gamma^t A_\pi (s_t , a_t)\right] \quad \text{QED} \hspace{45mm} \qedsymbol{} \nonumber 
+\end{align}
+}}
+
+b) Prove the following identity:
+
+\begin{align}\label{true_objective}
+    \eta(\pi') = \eta(\pi) + \sum_{s}\rho_{\textcolor{red}{\pi'}}(s)\sum_{a}\pi'(a|s)A_{\pi}(s, a)
+\end{align}
+
+Equation \ref{true_objective} can be used as an optimization objective in reinforcement learning. Note that this equation has been considered difficult to optimize directly due to the complex dependency of $\rho_{\pi'}(s)$ on $\pi'$. Instead, the following local approximation of $\eta$ has been introduced for optimization:
+
+\begin{align}\label{approx_objective}
+    L_{\pi}(\pi') = \eta(\pi) + \sum_{s}\rho_{\textcolor{red}{\pi}}(s)\sum_{a}\pi'(a|s)A_{\pi}(s, a)
+\end{align}
+
+Note that $L_{\pi}$ uses the visitation frequency $\rho_{\pi}$ rather than $\rho_{\pi'}$, ignoring changes in state visitation density due to changes in the policy. In the next section, we will derive an algorithm to guarantee a monotonic improvement in our policy using equation \ref{approx_objective} as our objective function, showing that equation \ref{approx_objective} is good enough in our case.\\
+{\fontfamily{lmss}\selectfont {\color{RoyalBlue}
+Proof.
+\begin{align*}
+\eta(\pi') &= \eta(\pi) + \sum_{t=0}^{\infty} \sum_s P(s_t=s|\pi') \sum_a \pi'(a|s)\gamma^t A_{\pi}(s,a) \\
+&= \eta(\pi) + \sum_s \sum_{t=0}^{\infty} \gamma^t P(s_t=s|\pi') \sum_a\pi'(a|s)A_{\pi}(s,a) \\
+&= \eta(\pi) + \sum_s \rho_{\pi'}(s) \sum_a \pi'(a|s)A_{\pi}(s,a)\quad \text{QED}
+\end{align*}
+}}
+
+\subsection{Monotonic Improvement Guarantee for General Stochastic Policies}
+
+In this section, we build the theoretical foundations to consider the policy optimization problem, assuming that the policy can be evaluated at all states. The ultimate goal of this section is to prove the following theorem:
+
+\begin{theorem}\label{thm:policy-bound}
+    Let $\pi, \pi'$ be two stochastic policies. Then, the following bound holds:
+    \begin{align*}
+    &\eta(\pi') \ge L_{\pi}(\pi') - \frac{4\epsilon\gamma}{(1-\gamma)^2}D_{KL}^{\max}(\pi, \pi') \\
+    &\text{where } \epsilon = \max_{s, a} |A_{\pi}(s, a)|
+    \end{align*}
+\end{theorem}
+
+During this section, we use the following definitions and inequality for the total variation and KL divergence:
+
+\begin{align*}
+    &D_{TV}(p||q) = \frac{1}{2}\sum_{i}|p_i - q_i| \\
+    &D_{TV}^{\max}(\pi, \pi') = \max_{s} D_{TV}(\pi(.|s)||\pi'(.|s))\\
+    &D_{KL}^{\max}(\pi, \pi') = \max_{s} D_{KL}(\pi(.|s)||\pi'(.|s))\\
+    &D_{TV}(p||q)^2 \le D_{KL}(p||q)
+\end{align*}
+
+We will prove theorem \ref{thm:policy-bound} step by step, and you are required to complete the proof as indicated below. To begin the proof, we denote trajectories by $\tau$ and define $\bar{A}(s)$ as follows:
+
+\begin{align*}
+    \bar{A}(s) = \mathbb{E}_{a \sim \pi'(.|s)}[A_{\pi}(s, a)]
+\end{align*}
+
+Then we can rewrite equations \ref{true_objective} and \ref{approx_objective} as follows:
+
+\begin{align}
+    \eta(\pi') = \eta(\pi) + \mathbb{E}_{\tau \sim \pi'}[\sum_{t = 0}^{\infty}\gamma^t \bar{A}(s_t)] \\
+    L_{\pi}(\pi') = \eta(\pi) + \mathbb{E}_{\tau \sim \pi}[\sum_{t = 0}^{\infty}\gamma^t \bar{A}(s_t)] 
+\end{align}
+
+The only difference in these two equations is whether the states are sampled using $\pi$ or $\pi'$. To bound the difference between $\eta(\pi')$ and $L_{\pi}(\pi')$, we first need to introduce a measure of how much $\pi$ and $\pi'$ agree. Specifically, we'll couple the policies so that they define a joint distribution over pairs of actions. We use the following definition of $\alpha$-coupled policy pairs:
+
+\begin{definition}
+    $(\pi, \pi')$ is an $\alpha$-coupled policy pair if it defines a joint distribution $(a, a')|s$ such that $P(a \neq a'|s) \le \alpha$ for all $s$. $\pi$ and $\pi'$ will denote the marginal distributions of $a$ and $a'$, respectively.
+\end{definition}
+
+c) Prove the following lemma:
+
+\begin{lemma}
+    Given that $\pi, \pi'$ are $\alpha$-coupled policies, for all $s$,
+    \begin{align*}
+        |\bar{A}(s)| \le 2\alpha \max_{s, a}|A_{\pi}(s,a)|
+    \end{align*}
+\end{lemma}\\
+{\fontfamily{lmss}\selectfont {\color{RoyalBlue}
+Proof.
+\begin{align}
+    \bar{A}(s) = \mathbf{E}_{a' \sim \pi'} \left[A_\pi (s,a')\right] = \mathbf{E}_{(a , a') \sim (\pi , \pi')} \left[ A_\pi(s,a') - A_\pi(s,a)\right] \nonumber 
+\end{align}
+The previous equality holds because we have :
+\begin{align}
+    \mathbf{E}_{a \sim \pi}\left[A_\pi(s,a)\right] = \sum_{a \in A} \pi(a|s)(Q_\pi(s,a) - V_\pi(s)) &= \mathbf{E}_{a \sim \pi} \left[ Q_\pi(s,a)\right] - \mathbf{E}_{a \sim \pi}\left[\mathbf{E}_{a \sim \pi}\left[Q_\pi(s,a)\right]\right] \nonumber \\
+    &= \mathbf{E}_{a \sim \pi}\left[Q_\pi(s,a)\right] - \mathbf{E}_{a \sim \pi}\left[ Q_\pi(s,a)\right] = 0 \nonumber   
+\end{align}
+And from the definition of an $\alpha$-coupled policy pair we have 
+
+\begin{align}
+    \bar{A}(s)& = \mathbf{E}_{(a,a') \sim (\pi , \pi') |a \neq a'} \left[ A_\pi(s,a') - A_\pi(s,a)\right] = \sum_{a,a'}P(a,a'|s)\left[A_\pi(s,a') - A_\pi(s,a)\right] \nonumber \\
+    a = a' &\Rightarrow \sum_{a,a'}P(a,a'|s)[A_\pi(s,a) - A_\pi(s,a)] = \sum_{a,a'}P(a,a'|s) \cdot 0 = 0 \nonumber \\
+    a \neq a' &\Rightarrow \sum_{a \neq a'}P(a, a'|s)\left[A_\pi(s,a) - A_\pi(s,a')\right] \nonumber 
+\end{align}
+From the definition of conditional expectation we have that :
+\begin{align}
+    &\mathbf{E}[\textbf{Y}|\textbf{Z}] = \sum_y yP(\textbf{Y} = y |\textbf{Z}) \nonumber \\
+    &\textbf{Y} = A_\pi(s,a') - A_\pi(s,a) \, ,\, \textbf{Z} =(a \neq a')  \, ,\, P(Y,Z) = P(Y|Z)P(Z)\nonumber \\
+    &\Rightarrow \sum_{a \neq a'}P(a\neq a'|s)\left[A_\pi(s,a) - A_\pi(s,a')\right] \nonumber \\
+    & \hspace{20mm}= P(a\neq a'|s) \sum_{a \neq a'}\frac{P(a,a'|s)}{P(a\neq a'|s)}\left[A_\pi(s,a) - A_\pi(s,a')\right] \nonumber \\
+    & \hspace{20mm}= P(a\neq a'|s)\mathbf{E}_{(a , a') \sim (\pi , \pi') | a \neq a'} \left[A_\pi(s,a') - A_\pi(s,a)\right] \nonumber 
+\end{align}
+And finally from the \textbf{triangle inequality} we have that :
+\begin{align}
+    &|x - y| \leq |x| + |y| \Rightarrow \nonumber \\
+    &|\mathbf{E}_{(a,a') \sim (\pi,\pi')} \left[ A_\pi(s,a')\right] - \mathbf{E}_{(a,a')\sim(\pi,\pi')}\left[A_\pi(s,a)\right]| \leq \underbrace{|\mathbf{E}_{(a,a') \sim (\pi,\pi')} \left[ A_\pi(s,a')\right] |}_{\leq \,\max_{s,a} A_\pi(s,a)} + \underbrace{|\mathbf{E}_{(a,a')\sim(\pi,\pi')}\left[A_\pi(s,a)\right]|}_{\leq \,\max_{s,a} A_\pi(s,a)} \nonumber \\
+    &P(a\neq a'|s) \leq \alpha \Rightarrow |\bar A(s)| \leq \alpha \cdot 2\cdot max_{s,a} A_\pi(s,a) \quad \text{QED} \nonumber 
+\end{align}
+}}
+
+d) Prove the following lemma:
+
+\begin{lemma}
+    Let $(\pi, \pi')$ be an $\alpha$-coupled policy pair. Then:
+    \begin{align*}
+        |\mathbb{E}_{s_t \sim \pi'}[\bar{A}(s_t)] - \mathbb{E}_{s_t \sim \pi}[\bar{A}(s_t)]| \le 4\alpha(1-(1-\alpha)^t)\max_{s, a}|A_\pi(s, a)|
+    \end{align*}
+\end{lemma} \\
+{\fontfamily{lmss}\selectfont {\color{RoyalBlue}
+Given the coupled policy pair $(\pi, \tilde{\pi})$, we can also obtain a coupling over the trajectory distributions produced by $\pi$ and $\tilde{\pi}$. We have pairs of trajectories $\tau, \tilde{\tau}$, where $\tau$ is obtained by taking actions from $\pi$, and $\tilde{\tau}$ is obtained by taking actions from $\tilde{\pi}$, where the same random seed is used to generate both trajectories. 
+\begin{equation}
+E_{s_t \sim \tilde{\pi}}[\tilde{A}(s_t)] = P(n_t=0)E_{s_t \sim \tilde{\pi}|n_t=0}[\tilde{A}(s_t)] + P(n_t>0)E_{s_t \sim \tilde{\pi}|n_t>0}[\tilde{A}(s_t)]
+\nonumber
+\end{equation}
+The expectation decomposes similarly for actions are sampled using $\pi$:
+\begin{equation}
+E_{s_t \sim \pi}[A(s_t)] = P(n_t=0)E_{s_t \sim \pi|n_t=0}[A(s_t)] + P(n_t>0)E_{s_t \sim \pi|n_t>0}[A(s_t)]
+\nonumber
+\end{equation}
+Note that the $n_t=0$ terms are equal:
+\begin{equation}
+E_{s_t \sim \tilde{\pi}|n_t=0}[\tilde{A}(s_t)] = E_{s_t \sim \pi|n_t=0}[A(s_t)] 
+\nonumber
+\end{equation}
+because $n_t = 0$ indicates that $\pi$ and $\tilde{\pi}$ agreed on all timesteps less than $t$.
+\begin{equation}
+E_{s_t \sim \tilde{\pi}}[\tilde{A}(s_t)] - E_{s_t \sim \pi}[A(s_t)] = P(n_t > 0)(E_{s_t \sim \tilde{\pi}|n_t>0}[\tilde{A}(s_t)] - E_{s_t \sim \pi|n_t>0}[A(s_t)])
+\nonumber
+\end{equation}
+By definition of $\alpha$, $P(\pi, \tilde{\pi} \text{ agree at timestep } i) \geq 1-\alpha$, so $P(n_t=0) \geq (1-\alpha)^t$, and
+\begin{equation}
+P(n_t>0) \leq 1-(1-\alpha)^t
+\nonumber
+\end{equation}
+Next, note that
+\begin{align}
+\left|E_{s_t \sim \tilde{\pi}|n_t>0}[\tilde{A}(s_t)] - E_{s_t \sim \pi|n_t>0}[A(s_t)]\right| &\leq \left|E_{s_t \sim \tilde{\pi}|n_t>0}[\tilde{A}(s_t)]\right| + \left|E_{s_t \sim \pi|n_t>0}[A(s_t)]\right| \nonumber \\
+&\leq 4\alpha \max_{s,a} |A_{\pi}(s,a)| \nonumber
+\end{align}
+\begin{equation}
+E_{s_t \sim \tilde{\pi}}[\tilde{A}(s_t)] - E_{s_t \sim \pi}[A(s_t)] \leq 4\alpha(1-(1-\alpha)^t) \max_{s,a} |A_{\pi}(s,a)|
+\nonumber
+\end{equation}
+}}
+e) Prove the following lemma:
+
+\begin{lemma}
+    Let $(\pi, \pi')$ be an $\alpha$-coupled policy pair. Then:
+    \begin{align*}
+        |\eta(\pi')-L_{\pi}(\pi')| \le \frac{4\alpha^2\gamma\epsilon}{(1-\gamma)^2}
+    \end{align*}
+\end{lemma}\\
+{\fontfamily{lmss}\selectfont {\color{RoyalBlue}
+The preceding Lemma bounds the difference in expected advantage at each timestep $t$. We can sum over time to bound the difference between $\eta(\tilde{\pi})$ and $L_{\pi}(\tilde{\pi})$. Defining $\epsilon = \max_{s,a} |A_{\pi}(s,a)|$,
+\begin{align}
+\left|\eta(\tilde{\pi}) - L_{\pi}(\tilde{\pi})\right| &= \left|\sum_{t=0}^{\infty} \gamma^t \mathbb{E}_{\tau \sim \pi}[\tilde{A}(s_t)] - \mathbb{E}_{\tau \sim \tilde{\pi}}[\tilde{A}(s_t)]\right| \nonumber \\
+&\leq \sum_{t=0}^{\infty} \gamma^t \cdot 4\alpha\epsilon(1-(1-\alpha)^t) \nonumber \\
+&= 4\alpha\epsilon \left(\frac{1}{1-\gamma} - \frac{1}{1-\gamma(1-\alpha)}\right) \nonumber \\
+&= \frac{4\alpha^2\gamma\epsilon}{(1-\gamma)(1-\gamma(1-\alpha))} \nonumber \\
+&\leq \frac{4\alpha^2\gamma\epsilon}{(1-\gamma)^2} \nonumber
+\end{align}
+}}
+\newpage
+f) Prove theorem \ref{thm:policy-bound}. Hint: Use the fact that if we have two policies $\pi$ and $\pi'$ such that $D_{TV}^{\max} (\pi, \pi') \le \alpha$, then we can define an $\alpha$-couples policy pair $(\pi, \pi')$ with appropriate marginals.\\
+{\fontfamily{lmss}\selectfont {\color{RoyalBlue}
+Answer : This has been proven in the previous parts step by step!
+}}
+\footnote{There is no need to prove this hint!}
+
+
+Note that the inequality in theorem \ref{thm:policy-bound} becomes an equality in $\pi' = \pi$. Thus, the following optimization problem guarantees a non-decreasing expected return $\eta$:
+\begin{align*}
+    &\pi_{i + 1} = \argmax_{\pi} L_{\pi_i}(\pi) - CD_{KL}^{\max}(\pi_i, \pi)\\
+    &\text{where } C = \frac{4\epsilon\gamma}{(1-\gamma)^2}\\
+    &\text{and } L_{\pi_i}(\pi) = \eta(\pi_i) + \sum_{s}\rho_{\pi_i}(s)\sum_{a}\pi(a|s)A_{\pi_i}(s, a)
+\end{align*}
+
+In practice, if we use the penalty coefficient $C$ as recommended by the theory above, the step sizes would be very small. One way to take larger steps in a robust way is to use a constraint on the KL divergence between the two policies as a trust region:
+\begin{align*}
+    &\pi_{i + 1} = \argmax_{\pi} L_{\pi_i}(\pi)\\
+    &\text{subject to } D_{KL}^{\max}(\pi_i, \pi) \le \delta
+\end{align*}
+
+This problem imposes a constraint that the KL divergence is bounded at every point in the state space. While it is motivated by the theory, this problem is impractical to solve due to the large number of constraints. Instead, we can use a heuristic approximation by considering the average KL divergence. The following optimization problem has been proposed as the TRPO algorithm:
+\begin{align*}
+    &\pi_{i + 1} = \argmax_{\pi} L_{\pi_i}(\pi)\\
+    &\text{subject to } \mathbb{E}_{s \sim \rho}[D_{KL}(\pi_i (.|s) || \pi(.|s))] \le \delta
+\end{align*}
